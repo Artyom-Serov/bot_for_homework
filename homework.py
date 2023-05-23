@@ -1,4 +1,3 @@
-import utils
 import os
 import sys
 import time
@@ -37,21 +36,13 @@ def check_tokens():
     missing_tokens = []
 
     for token in required_tokens:
-        if os.getenv(token) is None or os.getenv(token) == '':
+        if not os.getenv(token):
             missing_tokens.append(token)
 
     if missing_tokens:
         missing_tokens_str = ', '.join(missing_tokens)
         logger.critical(f'Отсутствуют следующие переменные окружения: '
                         f'{missing_tokens_str}. Невозможно продолжить работу.')
-        raise utils.BreakInfiniteLoop(
-            "Отсутствуют обязательные переменные окружения.")
-    if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
-        logger.critical(f'Отсутствуют обязательные переменные окружения: '
-                        f'PRACTICUM_TOKEN={PRACTICUM_TOKEN}, '
-                        f'TELEGRAM_TOKEN={TELEGRAM_TOKEN}, '
-                        f'TELEGRAM_CHAT_ID={TELEGRAM_CHAT_ID}. '
-                        f'Невозможно продолжить работу.')
         raise SystemExit(1)
 
 
@@ -123,20 +114,24 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     check_tokens()
+    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
+        logger.critical('Ошибка в переменных окружения')
+        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            if 'homeworks' in response and len(response['homeworks']) > 0:
-                for homework in response['homeworks']:
+            homeworks = response.get('homeworks', [])
+            if homeworks:
+                for homework in homeworks:
                     if 'status' in homework:
                         message = parse_status(homework)
                         while not send_message(bot, message):
-                            logger.warning('Попытка отправки сообщения '
-                                           'не удалась, повторная попытка '
-                                           'через 10 минут.')
+                            logger.warning(
+                                'Попытка отправки сообщения не удалась, '
+                                'повторная попытка через 10 минут.')
                             time.sleep(RETRY_PERIOD)
                         raise SystemExit('break')
 
