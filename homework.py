@@ -9,12 +9,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-log_formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] %(message)s'
-)
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setFormatter(log_formatter)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(
+    logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
 logger.addHandler(stream_handler)
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -47,7 +46,7 @@ def check_tokens():
                         f'{missing_tokens_str}. Невозможно продолжить работу.')
         raise utils.BreakInfiniteLoop(
             "Отсутствуют обязательные переменные окружения.")
-    if not PRACTICUM_TOKEN or not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+    if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
         logger.critical(f'Отсутствуют обязательные переменные окружения: '
                         f'PRACTICUM_TOKEN={PRACTICUM_TOKEN}, '
                         f'TELEGRAM_TOKEN={TELEGRAM_TOKEN}, '
@@ -60,12 +59,11 @@ def send_message(bot, message):
     """Отправка сообщения в телеграм чат."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        logger.debug('Сообщение успешно отправлено в телеграм чат.')
+        return True
     except Exception as error:
         logger.error(f'Ошибка при отправке сообщения в телеграм чат: {error}')
         return False
-    else:
-        logger.debug('Сообщение успешно отправлено в телеграм чат.')
-        return True
 
 
 def get_api_answer(timestamp):
@@ -92,32 +90,32 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверка ответа от API-сервиса."""
-    if isinstance(response, list):
+    if not isinstance(response, dict):
         error_message = 'Ответ от API должен быть представлен в виде словаря'
         logger.error(error_message)
         raise TypeError(error_message)
-    if not isinstance(response.get('homeworks'), list):
-        error_message = ('Данные для ключа "homeworks" должны '
-                         'быть представлены в виде списка')
+    if 'homeworks' not in response or not isinstance(
+            response['homeworks'], list):
+        error_message = 'Данные для ключа "homeworks" должны быть '
+        'представлены в виде списка'
         logger.error(error_message)
         raise TypeError(error_message)
-    return response
 
 
 def parse_status(homework):
     """Извлечение статуса домашней работы."""
     homework_name = homework.get('homework_name')
-    if homework_name is None:
+    if not homework_name:
         raise ValueError('Отсутствует ключ "homework_name" в ответе API')
 
     status = homework.get('status')
-    if status is None:
+    if not status:
         raise ValueError('Отсутствует ключ "status" в ответе API')
 
     verdict = HOMEWORK_VERDICTS.get(status)
-    if verdict is None:
-        raise ValueError(
-            f'Неизвестный статус работы "{homework_name}": {status}')
+    if not verdict:
+        raise ValueError(f'Неизвестный статус работы "'
+                         f'{homework_name}": {status}')
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -140,13 +138,14 @@ def main():
                                            'не удалась, повторная попытка '
                                            'через 10 минут.')
                             time.sleep(RETRY_PERIOD)
-                        raise utils.BreakInfiniteLoop('break')
-            else:
+                        raise SystemExit('break')
+
                 logger.debug('Новых заданий нет')
             time.sleep(RETRY_PERIOD)
-            continue
+
         except KeyboardInterrupt:
             raise SystemExit("Программа остановлена пользователем.")
+
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
