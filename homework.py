@@ -70,10 +70,10 @@ def get_api_answer(timestamp):
         response.raise_for_status()
     except requests.exceptions.RequestException as error:
         logger.error(f'Ошибка запроса API: {error}')
-        return {}
+        return response.json()
     except requests.exceptions.HTTPError as error:
         logger.error(f'Ошибка запроса API: {error.response.status_code}')
-        return {}
+        return response.json()
 
     if response.status_code != 200:
         raise AssertionError('Произошла ошибка при запросе API')
