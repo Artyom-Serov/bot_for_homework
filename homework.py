@@ -87,10 +87,14 @@ def check_response(response):
         error_message = 'Ответ от API должен быть представлен в виде словаря'
         logger.error(error_message)
         raise TypeError(error_message)
-    if 'homeworks' not in response or not isinstance(
-            response['homeworks'], list):
-        error_message = 'Данные для ключа "homeworks" должны быть '
-        'представлены в виде списка'
+    if 'homeworks' not in response:
+        error_message = 'Отсутствует ключ "homeworks" в ответе от API'
+        logger.error(error_message)
+        raise KeyError(error_message)
+
+    if not isinstance(response['homeworks'], list):
+        error_message = 'Данные для ключа "homeworks" '
+        'должны быть представлены в виде списка'
         logger.error(error_message)
         raise TypeError(error_message)
 
