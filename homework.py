@@ -47,6 +47,13 @@ def check_tokens():
                         f'{missing_tokens_str}. Невозможно продолжить работу.')
         raise utils.BreakInfiniteLoop(
             "Отсутствуют обязательные переменные окружения.")
+    if not PRACTICUM_TOKEN or not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.critical(f'Отсутствуют обязательные переменные окружения: '
+                        f'PRACTICUM_TOKEN={PRACTICUM_TOKEN}, '
+                        f'TELEGRAM_TOKEN={TELEGRAM_TOKEN}, '
+                        f'TELEGRAM_CHAT_ID={TELEGRAM_CHAT_ID}. '
+                        f'Невозможно продолжить работу.')
+        raise SystemExit(1)
 
 
 def send_message(bot, message):
@@ -129,13 +136,14 @@ def main():
                     if 'status' in homework:
                         message = parse_status(homework)
                         while not send_message(bot, message):
-                            logger.warning(
-                                'Попытка отправки сообщения не удалась, '
-                                'повторная попытка через 10 минут.')
+                            logger.warning('Попытка отправки сообщения '
+                                           'не удалась, повторная попытка '
+                                           'через 10 минут.')
                             time.sleep(RETRY_PERIOD)
+                        raise utils.BreakInfiniteLoop('break')
             else:
                 logger.debug('Новых заданий нет')
-            time.sleep(1)
+            time.sleep(RETRY_PERIOD)
             continue
         except KeyboardInterrupt:
             raise SystemExit("Программа остановлена пользователем.")
@@ -143,7 +151,7 @@ def main():
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
             time.sleep(RETRY_PERIOD)
-            raise SystemExit(str(error))
+            return
 
 
 if __name__ == '__main__':
