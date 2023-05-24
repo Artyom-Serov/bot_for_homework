@@ -50,10 +50,8 @@ def send_message(bot, message):
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug('Сообщение успешно отправлено в телеграм чат.')
-        return True
     except Exception as error:
         logger.error(f'Ошибка при отправке сообщения в телеграм чат: {error}')
-        return False
 
 
 def get_api_answer(timestamp):
@@ -102,18 +100,19 @@ def parse_status(homework):
 
     for key in required_keys:
         if key not in homework:
-            logger.debug(f'Отсутствует ключ "{key}" в ответе API')
-            raise ValueError(f'Отсутствует ключ "{key}" в ответе API')
+            error_message = f'Отсутствует ключ "{key}" в ответе API'
+            logger.debug(error_message)
+            raise ValueError(error_message)
 
     homework_name = homework['homework_name']
     homework_status = homework['status']
 
     verdict = HOMEWORK_VERDICTS.get(homework_status)
     if not verdict:
-        logger.debug(f'Неизвестный статус работы '
-                     f'"{homework_name}": {homework_status}')
-        raise ValueError(f'Неизвестный статус работы '
+        error_message = (f'Неизвестный статус работы '
                          f'"{homework_name}": {homework_status}')
+        logger.debug(error_message)
+        raise ValueError(error_message)
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
