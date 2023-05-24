@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(
+    logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
+logger.addHandler(stream_handler)
+
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -34,11 +41,14 @@ def check_tokens():
         if not os.getenv(token):
             missing_tokens.append(token)
 
-    if missing_tokens:
-        missing_tokens_str = ', '.join(missing_tokens)
-        logger.critical(f'Отсутствуют следующие переменные окружения: '
-                        f'{missing_tokens_str}. Невозможно продолжить работу.')
-        raise SystemExit(1)
+#    if missing_tokens:
+#        missing_tokens_str = ', '.join(missing_tokens)
+#        logger.critical(f'Отсутствуют следующие переменные окружения: '
+#                        f'{missing_tokens_str}. Невозможно продолжить работу.')
+#        raise SystemExit(1)
+    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
+        logger.critical('Ошибка в переменных окружения')
+        sys.exit(1)
 
 
 def send_message(bot, message):
@@ -94,18 +104,19 @@ def check_response(response):
 
 def parse_status(homework):
     """Извлечение статуса домашней работы."""
-    homework_name = homework.get('homework_name')
-    if not homework_name:
-        raise ValueError('Отсутствует ключ "homework_name" в ответе API')
+    required_keys = ['homework_name', 'status']
 
-    status = homework.get('status')
-    if not status:
-        raise ValueError('Отсутствует ключ "status" в ответе API')
+    for key in required_keys:
+        if key not in homework:
+            raise ValueError(f'Отсутствует ключ "{key}" в ответе API')
 
-    verdict = HOMEWORK_VERDICTS.get(status)
+    homework_name = homework['homework_name']
+    homework_status = homework['status']
+
+    verdict = HOMEWORK_VERDICTS.get(homework_status)
     if not verdict:
-        raise ValueError(f'Неизвестный статус работы "'
-                         f'{homework_name}": {status}')
+        raise ValueError(f'Неизвестный статус работы '
+                         f'"{homework_name}": {homework_status}')
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -113,9 +124,6 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     check_tokens()
-    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
-        logger.critical('Ошибка в переменных окружения')
-        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
@@ -148,11 +156,11 @@ def main():
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(
-        logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
-    logger.addHandler(stream_handler)
+#    logger = logging.getLogger(__name__)
+#    logger.setLevel(logging.DEBUG)
+#    stream_handler = logging.StreamHandler(sys.stdout)
+#    stream_handler.setFormatter(
+#        logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
+#    logger.addHandler(stream_handler)
 
     main()
