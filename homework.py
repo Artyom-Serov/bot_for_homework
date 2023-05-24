@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(
     logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
@@ -41,11 +40,6 @@ def check_tokens():
         if not os.getenv(token):
             missing_tokens.append(token)
 
-#    if missing_tokens:
-#        missing_tokens_str = ', '.join(missing_tokens)
-#        logger.critical(f'Отсутствуют следующие переменные окружения: '
-#                        f'{missing_tokens_str}. Невозможно продолжить работу.')
-#        raise SystemExit(1)
     if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
         logger.critical('Ошибка в переменных окружения')
         sys.exit(1)
@@ -108,6 +102,7 @@ def parse_status(homework):
 
     for key in required_keys:
         if key not in homework:
+            logger.debug(f'Отсутствует ключ "{key}" в ответе API')
             raise ValueError(f'Отсутствует ключ "{key}" в ответе API')
 
     homework_name = homework['homework_name']
@@ -115,6 +110,8 @@ def parse_status(homework):
 
     verdict = HOMEWORK_VERDICTS.get(homework_status)
     if not verdict:
+        logger.debug(f'Неизвестный статус работы '
+                     f'"{homework_name}": {homework_status}')
         raise ValueError(f'Неизвестный статус работы '
                          f'"{homework_name}": {homework_status}')
 
@@ -126,41 +123,26 @@ def main():
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
+
     while True:
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            homeworks = response.get('homeworks', [])
+
+            homeworks = response['homeworks']
             if homeworks:
                 for homework in homeworks:
-                    if 'status' in homework:
-                        message = parse_status(homework)
-                        while not send_message(bot, message):
-                            logger.warning(
-                                'Попытка отправки сообщения не удалась, '
-                                'повторная попытка через 10 минут.')
-                            time.sleep(RETRY_PERIOD)
-                        raise SystemExit('break')
+                    message = parse_status(homework)
+                    send_message(bot, message)
 
-                logger.debug('Новых заданий нет')
-            time.sleep(RETRY_PERIOD)
-
-        except KeyboardInterrupt:
-            raise SystemExit("Программа остановлена пользователем.")
-
+            timestamp = response['current_date']
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
+            logger.error(message)
+        finally:
             time.sleep(RETRY_PERIOD)
-            return
 
 
 if __name__ == '__main__':
-#    logger = logging.getLogger(__name__)
-#    logger.setLevel(logging.DEBUG)
-#    stream_handler = logging.StreamHandler(sys.stdout)
-#    stream_handler.setFormatter(
-#        logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(message)s'))
-#    logger.addHandler(stream_handler)
-
+    logger.setLevel(logging.DEBUG)
     main()
