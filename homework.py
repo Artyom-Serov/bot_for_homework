@@ -5,7 +5,6 @@ import time
 
 import requests
 import telegram
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,16 +32,26 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка доступности переменных окружения."""
-    required_tokens = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
+    required_tokens = {
+        'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
+        'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
+        'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID
+    }
     missing_tokens = []
 
     for token in required_tokens:
         if not os.getenv(token):
             missing_tokens.append(token)
 
-    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
-        logger.critical('Ошибка в переменных окружения')
+    if missing_tokens:
+        error_message = (f"Отсутствуют переменные окружения: "
+                         f"{', '.join(missing_tokens)}")
+        logger.error(error_message)
         sys.exit(1)
+
+#    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
+#        logger.critical('Ошибка в переменных окружения')
+#        sys.exit(1)
 
 
 def send_message(bot, message):
@@ -107,12 +116,13 @@ def parse_status(homework):
     homework_name = homework['homework_name']
     homework_status = homework['status']
 
-    verdict = HOMEWORK_VERDICTS.get(homework_status)
-    if not verdict:
+    if homework_status not in HOMEWORK_VERDICTS:
         error_message = (f'Неизвестный статус работы '
                          f'"{homework_name}": {homework_status}')
         logger.debug(error_message)
         raise ValueError(error_message)
+
+    verdict = HOMEWORK_VERDICTS[homework_status]
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
