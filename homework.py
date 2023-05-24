@@ -39,19 +39,15 @@ def check_tokens():
     }
     missing_tokens = []
 
-    for token in required_tokens:
-        if not os.getenv(token):
-            missing_tokens.append(token)
+    for token_name, token_value in required_tokens.items():
+        if not token_value:
+            missing_tokens.append(token_name)
 
     if missing_tokens:
         error_message = (f"Отсутствуют переменные окружения: "
                          f"{', '.join(missing_tokens)}")
-        logger.error(error_message)
-        sys.exit(1)
-
-#    if not all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)):
-#        logger.critical('Ошибка в переменных окружения')
-#        sys.exit(1)
+        logger.critical(error_message)
+        exit(1)
 
 
 def send_message(bot, message):
