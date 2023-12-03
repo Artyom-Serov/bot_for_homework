@@ -151,3 +151,4 @@ posts/static/
 media/
 
 check_token.py
+yt_download.py
