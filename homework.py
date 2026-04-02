@@ -1,7 +1,9 @@
+import json
 import logging
 import os
 import sys
 import time
+from typing import Any
 
 import requests
 import telegram
@@ -22,6 +24,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+MAX_RETRIES = 3
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -59,7 +62,7 @@ def send_message(bot, message):
         logger.error(f'Ошибка при отправке сообщения в телеграм чат: {error}')
 
 
-def get_api_answer(timestamp):
+def get_api_answer(timestamp: int) -> dict[str, Any]:
     """Запрос к API-сервису."""
     params = {
         'from_date': timestamp,
@@ -72,13 +75,14 @@ def get_api_answer(timestamp):
         logger.error(f'Ошибка запроса API: {error}')
         raise
 
-    if response.status_code != 200:
-        raise AssertionError('Произошла ошибка при запросе API')
+    try:
+        return response.json()
+    except json.JSONDecodeError as error:
+        logger.error(f'Ошибка парсинга JSON: {error}')
+        raise
 
-    return response.json()
 
-
-def check_response(response):
+def check_response(response: dict[str, Any]) -> list[dict[str, Any]]:
     """Проверка ответа от API-сервиса."""
     if not isinstance(response, dict):
         error_message = 'Ответ от API должен быть представлен в виде словаря'
@@ -95,8 +99,10 @@ def check_response(response):
         logger.error(error_message)
         raise TypeError(error_message)
 
+    return response['homeworks']
 
-def parse_status(homework):
+
+def parse_status(homework: dict[str, Any]) -> str:
     """Извлечение статуса домашней работы."""
     required_keys = ['homework_name', 'status']
 
@@ -125,22 +131,27 @@ def main():
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
+    retry_count = 0
 
     while True:
         try:
             response = get_api_answer(timestamp)
-            check_response(response)
+            homeworks = check_response(response)
 
-            homeworks = response['homeworks']
             if homeworks:
                 for homework in homeworks:
                     message = parse_status(homework)
                     send_message(bot, message)
+                    retry_count = 0
 
             timestamp = response['current_date']
         except Exception as error:
+            retry_count += 1
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
+            if retry_count >= MAX_RETRIES:
+                logger.critical(f'Превышен лимит повторных попыток ({MAX_RETRIES}). Остановка.')
+                break
         finally:
             time.sleep(RETRY_PERIOD)
 
