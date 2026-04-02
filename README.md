@@ -38,7 +38,7 @@ python3 -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 - Создайте файл .env и внесите в него свои параметры
-<br />**вводите параметры по образцу файла .env.gitkeep*
+<br />**вводите параметры по образцу файла .env.example*
 ```
 touch .env
 ```
